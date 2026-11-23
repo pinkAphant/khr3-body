@@ -1,39 +1,98 @@
 {
-  "name": "r3f-modular-npc",
-  "private": true,
+  "name": "@khr3/body",
   "version": "0.1.0",
+  "description": "First-person and third-person SI body for khr3: capsule constants, camera sync, and view-model held-item sockets on @pinkaphant/ecctrl.",
+  "license": "MIT",
   "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "khr3",
+    "body",
+    "ecctrl",
+    "rapier",
+    "r3f",
+    "threejs",
+    "gamedev"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pinkAphant/khr3-body.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite --port=3001 --host=0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.lib.json --noEmit && tsc --noEmit",
+    "build": "rm -rf dist && tsc -p tsconfig.lib.json && rm -f dist/*.test.*",
+    "build:example": "vite build --outDir example-dist",
+    "test": "rm -rf dist && tsc -p tsconfig.lib.json && node --test dist/body.test.js && rm -f dist/*.test.*",
+    "prepack": "npm run build",
+    "pack:dry": "npm pack --dry-run",
+    "preview": "vite preview --outDir example-dist",
     "lint": "tsc --noEmit"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@pinkaphant/ecctrl": "^2.0.4-beta.3",
+    "@react-three/fiber": ">=9.0.0",
+    "react": ">=19.0.0",
+    "three": ">=0.159.0"
+  },
+  "peerDependenciesMeta": {
+    "@pinkaphant/ecctrl": {
+      "optional": true
+    },
+    "@react-three/fiber": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@pinkaphant/ecctrl": "^2.0.4-beta.3",
+    "@playwright/test": "^1.65.1",
     "@preact/signals-core": "^1.14.5",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@react-three/rapier": "^2.2.0",
     "@react-three/uikit": "^1.0.78",
     "@react-three/uikit-default": "^1.0.78",
-    "lucide-react": "^0.546.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "three": "^0.187.0",
-    "wiggle": "^0.0.17"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "lucide-react": "^0.546.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tailwindcss": "^4.3.3",
+    "three": "^0.187.0",
     "typescript": "^5.8.0",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "wiggle": "^0.0.17"
   },
   "allowScripts": {
     "fsevents@2.3.3": true

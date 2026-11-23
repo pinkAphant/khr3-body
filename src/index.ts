@@ -81,3 +81,15 @@ export function bodyEyeOffsetY(b: BodySiConstants = BODY_SI): number {
 export function bodySpawnPosition(x: number, floorY: number, z: number, b: BodySiConstants = BODY_SI): [number, number, number] {
   return [x, floorY + bodyRestCenterY(b), z];
 }
+
+/** Zero-allocation camera step sync from live handle position to camera controls at eye height. */
+export function stepCameraSync(
+  controls: { moveTo?: (x: number, y: number, z: number, smooth: boolean) => unknown; update?: (dt: number) => unknown } | null,
+  pos: { x: number; y: number; z: number },
+  eyeOffsetY: number,
+  smooth: boolean,
+): void {
+  if (!controls) return;
+  controls.moveTo?.(pos.x, pos.y + eyeOffsetY, pos.z, smooth);
+  controls.update?.(0);
+}
