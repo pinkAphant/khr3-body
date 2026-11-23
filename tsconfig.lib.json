@@ -15,7 +15,6 @@
     "src/index.ts",
     "src/KhrBody.tsx",
     "src/HeldItem.tsx",
-    "src/react.ts",
-    "src/body.test.ts"
+    "src/react.ts"
   ]
 }

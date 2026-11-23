@@ -1,13 +1,14 @@
-import { Ecctrl, type EcctrlHandle, type EcctrlProps, type MovementInput } from "@pinkaphant/ecctrl";
+import { Ecctrl, type EcctrlHandle, type EcctrlProps, type EcctrlUserDataType, type MovementInput } from "@pinkaphant/ecctrl";
 import { EcctrlCameraControls, type EcctrlCameraControlsHandle } from "@pinkaphant/ecctrl/camera";
-import { useFrame } from "@react-three/fiber";
-import { useEffect, useImperativeHandle, useMemo, useRef, type ReactNode, type Ref } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useImperativeHandle, useMemo, useRef, type ReactNode, type Ref, type RefObject } from "react";
 import * as THREE from "three";
 import {
   BODY_MOVE_TUNE,
   BODY_SI,
   BODY_SOCKET_IDS,
   bodyEyeOffsetY,
+  bodyRestCenterY,
   stepCameraSync,
   type BodySiConstants,
   type BodySocketId,
@@ -26,6 +27,7 @@ export interface KhrBodyProps extends Omit<EcctrlProps, "ref"> {
   readonly ref?: Ref<KhrBodyHandle>;
   readonly si?: BodySiConstants;
   readonly smoothCamera?: boolean;
+  readonly makeDefaultCamera?: boolean;
   readonly enableInput?: boolean;
   readonly viewModelChildren?: ReactNode;
   readonly socketOffsets?: Partial<Record<BodySocketId, readonly [number, number, number]>>;
@@ -47,32 +49,16 @@ const _partialMove: MovementInput = {
   jump: false,
 };
 
-export function KhrBody({
-  ref,
-  si = BODY_SI,
-  smoothCamera = false,
-  enableInput = true,
-  enable = true,
-  viewModelChildren,
-  socketOffsets,
-  children,
-  ...ecctrlProps
-}: KhrBodyProps) {
-  const ecctrlRef = useRef<EcctrlHandle | null>(null);
-  const camControlsRef = useRef<EcctrlCameraControlsHandle | null>(null);
-  const viewModelGroupRef = useRef<THREE.Group | null>(null);
-  const socketMapRef = useRef<Record<BodySocketId, THREE.Group | null>>({
-    Socket_Hand_R: null,
-    Socket_Hand_L: null,
-    Socket_Head: null,
-    Socket_Back: null,
-  });
-
+/**
+ * Mount order #1 (rendered BEFORE `<Ecctrl>`): registers its `useFrame` layout effect first
+ * so keyboard input reaches `ecctrl.setMovement` on the current frame before `<Ecctrl>` steps.
+ */
+function BodyInput({ active, ecctrlRef }: { readonly active: boolean; readonly ecctrlRef: RefObject<EcctrlHandle | null> }) {
   const keysRef = useRef({ w: false, s: false, a: false, d: false, shift: false, space: false, dirty: false });
-  const eyeOffsetY = useMemo(() => bodyEyeOffsetY(si), [si]);
+  const wasActiveRef = useRef(active);
 
   useEffect(() => {
-    if (!enableInput || typeof window === "undefined") return;
+    if (!active || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
     const onKey = (down: boolean) => (e: KeyboardEvent) => {
       const k = keysRef.current;
       if (e.code === "KeyW" || e.code === "ArrowUp") { if (k.w !== down) { k.w = down; k.dirty = true; } }
@@ -82,33 +68,40 @@ export function KhrBody({
       else if (e.code === "ShiftLeft" || e.code === "ShiftRight") { if (k.shift !== down) { k.shift = down; k.dirty = true; } }
       else if (e.code === "Space") { if (k.space !== down) { k.space = down; k.dirty = true; } }
     };
-    const kd = onKey(true), ku = onKey(false);
+    const onBlur = () => {
+      const k = keysRef.current;
+      if (k.w || k.s || k.a || k.d || k.shift || k.space) {
+        k.w = false; k.s = false; k.a = false; k.d = false; k.shift = false; k.space = false;
+        k.dirty = true;
+      }
+    };
+    const kd = onKey(true);
+    const ku = onKey(false);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
+      window.removeEventListener("blur", onBlur);
     };
-  }, [enableInput]);
+  }, [active]);
 
-  useImperativeHandle(ref, () => ({
-    get ecctrl() {
-      return ecctrlRef.current;
-    },
-    get cameraControls() {
-      return camControlsRef.current;
-    },
-    socket(id: BodySocketId) {
-      return socketMapRef.current[id] ?? null;
-    },
-    syncCameraStep(pos: { x: number; y: number; z: number }) {
-      stepCameraSync(camControlsRef.current as unknown as Parameters<typeof stepCameraSync>[0], pos, eyeOffsetY, smoothCamera);
-    },
-  }), [eyeOffsetY, smoothCamera]);
-
-  // Mount order #1: BodyInput (priority 0)
   useFrame(() => {
-    if (!enable || !enableInput) return;
+    const ctrl = ecctrlRef.current;
+    if (!ctrl) return;
+    if (!active) {
+      if (wasActiveRef.current) {
+        const k = keysRef.current;
+        k.w = false; k.s = false; k.a = false; k.d = false; k.shift = false; k.space = false; k.dirty = false;
+        _partialMove.forward = false; _partialMove.backward = false; _partialMove.leftward = false;
+        _partialMove.rightward = false; _partialMove.run = false; _partialMove.jump = false;
+        ctrl.setMovement(_partialMove);
+        wasActiveRef.current = false;
+      }
+      return;
+    }
+    wasActiveRef.current = true;
     const k = keysRef.current;
     if (!k.dirty) return;
     k.dirty = false;
@@ -118,25 +111,66 @@ export function KhrBody({
     _partialMove.rightward = k.d;
     _partialMove.run = k.shift;
     _partialMove.jump = k.space;
-    ecctrlRef.current?.setMovement(_partialMove);
+    ctrl.setMovement(_partialMove);
   });
 
-  const userData = useMemo(
-    () => ({
-      ...(ecctrlProps.userData ?? {}),
-      ecctrl: {
-        ...((ecctrlProps.userData as Record<string, any> | undefined)?.ecctrl ?? {}),
-        excludeCharacterRay: true,
-      },
-    }),
-    [ecctrlProps.userData],
+  return null;
+}
+
+export function KhrBody({
+  ref,
+  si = BODY_SI,
+  smoothCamera = false,
+  makeDefaultCamera = true,
+  enableInput = true,
+  enable = true,
+  viewModelChildren,
+  socketOffsets,
+  children,
+  userData: callerUserData,
+  position,
+  ...ecctrlProps
+}: KhrBodyProps) {
+  const ecctrlRef = useRef<EcctrlHandle | null>(null);
+  const camControlsRef = useRef<EcctrlCameraControlsHandle | null>(null);
+  const viewModelGroupRef = useRef<THREE.Group | null>(null);
+  const socketMapRef = useRef<Record<BodySocketId, THREE.Group | null>>({
+    Socket_Hand_R: null, Socket_Hand_L: null, Socket_Head: null, Socket_Back: null,
+  });
+
+  const eyeOffsetY = useMemo(() => bodyEyeOffsetY(si), [si]);
+  const defaultPosition = useMemo<[number, number, number]>(() => [0, bodyRestCenterY(si), 0], [si]);
+  const hasDomCanvas = useThree(
+    (s) => typeof (s.gl?.domElement as HTMLElement | undefined)?.setAttribute === "function",
   );
+
+  // Match ecctrl/example/EcctrlWrapper.tsx: excludeVehicleRay on character capsule, preserving caller userData.
+  const mergedUserData = useMemo<EcctrlUserDataType & Record<string, unknown>>(() => {
+    const prev = (callerUserData as Record<string, unknown> | undefined) ?? {};
+    const prevEcctrl = (prev.ecctrl as Record<string, unknown> | undefined) ?? {};
+    return { ...prev, ecctrl: { excludeVehicleRay: true, ...prevEcctrl } };
+  }, [callerUserData]);
+
+  useImperativeHandle(ref, () => ({
+    get ecctrl() { return ecctrlRef.current; },
+    get cameraControls() { return camControlsRef.current; },
+    socket(id: BodySocketId) { return socketMapRef.current[id] ?? null; },
+    syncCameraStep(pos: { x: number; y: number; z: number }) {
+      stepCameraSync(
+        camControlsRef.current as unknown as Parameters<typeof stepCameraSync>[0],
+        pos, eyeOffsetY, smoothCamera, ecctrlRef.current?.bodyYAxis,
+      );
+    },
+  }), [eyeOffsetY, smoothCamera]);
 
   return (
     <>
+      <BodyInput active={Boolean(enable && enableInput)} ecctrlRef={ecctrlRef} />
+
       <Ecctrl
         ref={ecctrlRef}
         enable={enable}
+        position={position ?? defaultPosition}
         capsuleHalfHeight={si.capsuleHalfHeight}
         capsuleRadius={si.capsuleRadius}
         floatHeight={si.floatHeight}
@@ -148,13 +182,13 @@ export function KhrBody({
         moveImpulsePointOffset={BODY_MOVE_TUNE.moveImpulsePointOffset}
         airDragFactor={BODY_MOVE_TUNE.airDragFactor}
         enableToggleRun={BODY_MOVE_TUNE.enableToggleRun}
-        userData={userData}
         {...ecctrlProps}
+        userData={mergedUserData}
       >
         {children}
       </Ecctrl>
 
-      <EcctrlCameraControls ref={camControlsRef} />
+      {hasDomCanvas ? <EcctrlCameraControls ref={camControlsRef} makeDefault={makeDefaultCamera} /> : null}
 
       <BodyPostEcctrlSync
         enable={enable}
@@ -173,9 +207,7 @@ export function KhrBody({
               key={id}
               name={id}
               position={[off[0], off[1], off[2]]}
-              ref={(g) => {
-                socketMapRef.current[id] = g;
-              }}
+              ref={(g) => { socketMapRef.current[id] = g; }}
             />
           );
         })}
@@ -186,30 +218,23 @@ export function KhrBody({
 }
 
 function BodyPostEcctrlSync({
-  enable,
-  ecctrlRef,
-  camControlsRef,
-  viewModelGroupRef,
-  eyeOffsetY,
-  smoothCamera,
+  enable, ecctrlRef, camControlsRef, viewModelGroupRef, eyeOffsetY, smoothCamera,
 }: {
   readonly enable: boolean;
-  readonly ecctrlRef: React.RefObject<EcctrlHandle | null>;
-  readonly camControlsRef: React.RefObject<EcctrlCameraControlsHandle | null>;
-  readonly viewModelGroupRef: React.RefObject<THREE.Group | null>;
+  readonly ecctrlRef: RefObject<EcctrlHandle | null>;
+  readonly camControlsRef: RefObject<EcctrlCameraControlsHandle | null>;
+  readonly viewModelGroupRef: RefObject<THREE.Group | null>;
   readonly eyeOffsetY: number;
   readonly smoothCamera: boolean;
 }) {
-  // Mount order #4 & #5: BodyCameraSync + ViewModelSync (priority 0, mounted after <Ecctrl>)
+  // Mount order #4 & #5: BodyCameraSync + ViewModelSync (mounted AFTER <Ecctrl>)
   useFrame((state) => {
     if (!enable) return;
     const handle = ecctrlRef.current;
     if (handle) {
       stepCameraSync(
         camControlsRef.current as unknown as Parameters<typeof stepCameraSync>[0],
-        handle.currPos,
-        eyeOffsetY,
-        smoothCamera,
+        handle.currPos, eyeOffsetY, smoothCamera, handle.bodyYAxis,
       );
     }
     const vm = viewModelGroupRef.current;

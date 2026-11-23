@@ -1,7 +1,6 @@
 /**
- * @khr3/body: SI first-person body dimensions for `@pinkaphant/ecctrl` `<Ecctrl>`.
- * Values are lifted verbatim from r3f-modular-npc `src/range/RangePlayer.tsx`.
- * The React body (`<KhrBody>`) is specified in SPEC.md and not built yet.
+ * @khr3/body: SI first-person and third-person body dimensions and zero-allocation camera helpers
+ * for `@pinkaphant/ecctrl` `<Ecctrl>` and `<EcctrlCameraControls>`.
  */
 
 export interface BodySiConstants {
@@ -82,14 +81,33 @@ export function bodySpawnPosition(x: number, floorY: number, z: number, b: BodyS
   return [x, floorY + bodyRestCenterY(b), z];
 }
 
-/** Zero-allocation camera step sync from live handle position to camera controls at eye height. */
+/**
+ * Merges `ecctrl.excludeCharacterRay: true` into a RigidBody `userData` object for held-item colliders
+ * so `@pinkaphant/ecctrl` ground casts ignore held items (`collider.parent()?.userData`).
+ */
+export function withExcludeCharacterRay(userData?: Record<string, unknown>): Record<string, unknown> {
+  const prevEcctrl = (userData?.ecctrl as Record<string, unknown> | undefined) ?? {};
+  return {
+    ...(userData ?? {}),
+    ecctrl: {
+      ...prevEcctrl,
+      excludeCharacterRay: true,
+    },
+  };
+}
+
+/** Zero-allocation camera step sync from live handle position (and optional local Y axis) to camera controls at eye height. */
 export function stepCameraSync(
   controls: { moveTo?: (x: number, y: number, z: number, smooth: boolean) => unknown; update?: (dt: number) => unknown } | null,
   pos: { x: number; y: number; z: number },
   eyeOffsetY: number,
   smooth: boolean,
+  bodyYAxis?: { x: number; y: number; z: number },
 ): void {
   if (!controls) return;
-  controls.moveTo?.(pos.x, pos.y + eyeOffsetY, pos.z, smooth);
+  const tx = bodyYAxis ? pos.x + bodyYAxis.x * eyeOffsetY : pos.x;
+  const ty = bodyYAxis ? pos.y + bodyYAxis.y * eyeOffsetY : pos.y + eyeOffsetY;
+  const tz = bodyYAxis ? pos.z + bodyYAxis.z * eyeOffsetY : pos.z;
+  controls.moveTo?.(tx, ty, tz, smooth);
   controls.update?.(0);
 }

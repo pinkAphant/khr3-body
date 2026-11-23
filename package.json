@@ -44,57 +44,60 @@
     "typecheck": "tsc -p tsconfig.lib.json --noEmit && tsc --noEmit",
     "build": "rm -rf dist && tsc -p tsconfig.lib.json && rm -f dist/*.test.*",
     "build:example": "vite build --outDir example-dist",
-    "test": "rm -rf dist && tsc -p tsconfig.lib.json && node --test dist/body.test.js && rm -f dist/*.test.*",
+    "test": "node --expose-gc --import ./test-loader.mjs --import tsx --test src/body.test.tsx",
     "prepack": "npm run build",
     "pack:dry": "npm pack --dry-run",
     "preview": "vite preview --outDir example-dist",
     "lint": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@khr3/core": "^0.1.0",
     "@pinkaphant/ecctrl": "^2.0.4-beta.3",
-    "@react-three/fiber": ">=9.0.0",
-    "react": ">=19.0.0",
-    "three": ">=0.159.0"
+    "@react-three/drei": ">=10.7",
+    "@react-three/fiber": ">=9.4",
+    "@react-three/rapier": ">=2.2.0",
+    "react": ">=19.2.7",
+    "react-dom": ">=19.2.7",
+    "three": ">=0.184.0"
   },
   "peerDependenciesMeta": {
-    "@pinkaphant/ecctrl": {
+    "@react-three/drei": {
       "optional": true
     },
-    "@react-three/fiber": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "three": {
+    "react-dom": {
       "optional": true
     }
   },
   "devDependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.2",
+    "@khr3/core": "^0.1.0",
     "@pinkaphant/ecctrl": "^2.0.4-beta.3",
     "@playwright/test": "^1.65.1",
     "@preact/signals-core": "^1.14.5",
-    "@react-three/drei": "^10.7.9",
-    "@react-three/fiber": "^9.8.2",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@react-three/rapier": "^2.2.0",
+    "@react-three/test-renderer": "^9.1.1",
     "@react-three/uikit": "^1.0.78",
     "@react-three/uikit-default": "^1.0.78",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.6",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@types/three": "^0.187.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.184.0",
     "@vitejs/plugin-react": "^6.1.1",
     "lucide-react": "^0.546.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3",
-    "three": "^0.187.0",
-    "typescript": "^5.8.0",
+    "three": "^0.184.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
     "vite": "^8.3.0",
     "wiggle": "^0.0.17"
   },
   "allowScripts": {
+    "esbuild@0.28.2": true,
     "fsevents@2.3.3": true
   }
 }
