@@ -1,6 +1,6 @@
 # `@khr3/body` Spec: the first-person body
 
-Status: **spec + SI constants only**. Nothing React-side is built yet. Not published.
+Status: **Shipped in `@khr3/body` ([src/index.ts](./src/index.ts)) and `@khr3/body/react` ([src/react.ts](./src/react.ts): `<KhrBody>`, `<HeldItem>`); mirrored in `Kolmo/src/body/`**.
 
 ## 1. What it is
 
@@ -69,18 +69,25 @@ Imperative-ref rules (from the ecctrl api-reference):
 - Module-scope scratch `Vector3`/`Quaternion` objects only. **Zero per-frame heap allocation.**
 - To exclude the body's own held-item colliders from ecctrl casts, set `userData.ecctrl.excludeCharacterRay` on the **parent RigidBody** (ecctrl reads `collider.parent()?.userData`).
 
-## 4. Public surface (target)
+## 4. Public surface (shipped)
 
 ```ts
-export const BODY_SI: BodySiConstants;            // src/index.ts (exists)
-export function bodyRestCenterY(b?: BodySiConstants): number; // exists
-export function bodyEyeOffsetY(b?: BodySiConstants): number;  // exists
+// @khr3/body (src/index.ts)
+export const BODY_SI: BodySiConstants;
+export const BODY_MOVE_TUNE: Readonly<Record<string, number | boolean>>;
+export const BODY_SOCKET_IDS: readonly BodySocketId[];
+export function bodyRestCenterY(b?: BodySiConstants): number;
+export function bodyStandingHeight(b?: BodySiConstants): number;
+export function bodyEyeOffsetY(b?: BodySiConstants): number;
+export function bodySpawnPosition(x: number, floorY: number, z: number, b?: BodySiConstants): [number, number, number];
+export function withExcludeCharacterRay(userData?: Record<string, unknown>): Record<string, unknown>;
+export function stepCameraSync(controls: unknown, pos: { x: number; y: number; z: number }, eyeOffsetY: number, smooth: boolean, bodyYAxis?: { x: number; y: number; z: number }): void;
 
-// planned (React):
-export function KhrBody(props: KhrBodyProps): JSX.Element;    // <Ecctrl> + camera + view model
+// @khr3/body/react (src/react.ts)
+export function KhrBody(props: KhrBodyProps): JSX.Element;
 export interface KhrBodyHandle { ecctrl: EcctrlHandle | null; socket(id: BodySocketId): THREE.Object3D | null; }
 export type BodySocketId = "Socket_Hand_R" | "Socket_Hand_L" | "Socket_Head" | "Socket_Back";
-export function HeldItem(props: { bundle: KhrAssetBundle; socket: BodySocketId }): JSX.Element;
+export function HeldItem(props: HeldItemProps): JSX.Element;
 ```
 
 Seat handoff with `<KhrVehicle>` follows GAME_ENGINE_BLUEPRINT §3: `enable={false}` on enter; on exit, respawn at the CoM-corrected exit socket and seed `currLinVel`.
